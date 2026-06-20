@@ -9,7 +9,12 @@ class BowlingGame {
   private rolls: number[] = [];
 
   roll(pins: number) {
+    this.assertRoll(pins);
     this.rolls.push(pins);
+  }
+
+  private assertRoll(pins: number) {
+    if (pins < 0 || 10 < pins) throw new Error();
   }
 
   calculateTotalScore() {
@@ -117,6 +122,16 @@ describe('bowling game', () => {
     const game = new BowlingGame();
     rollMany(game, 12, 10);
     expect(game.calculateTotalScore()).toBe(300);
+  });
+
+  it('should not be able to roll a negative pin amount', () => {
+    const game = new BowlingGame();
+    expect(() => game.roll(-1)).toThrow();
+  });
+
+  it('should not be able to roll more than 10 pins', () => {
+    const game = new BowlingGame();
+    expect(() => game.roll(11)).toThrow();
   });
 });
 
