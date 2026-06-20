@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 type Frame = {
   startsAt: number;
+  type: 'normal' | 'spare' | 'strike';
 };
 
 class BowlingGame {
@@ -15,10 +16,11 @@ class BowlingGame {
     return this.frames().reduce((total, frame) => total + this.calculateFrameScore(frame), 0);
   }
 
-  calculateFrameScore({ startsAt }: Frame) {
-    const pinsInFrame = 10;
-    const rolledPins = this.getPinsAt(startsAt) + this.getPinsAt(startsAt + 1);
-    return rolledPins === pinsInFrame ? rolledPins + this.getPinsAt(startsAt + 2) : rolledPins;
+  calculateFrameScore({ startsAt, type }: Frame) {
+    const firstRoll = this.getPinsAt(startsAt);
+    const secondRoll = this.getPinsAt(startsAt + 1);
+    const thirdRoll = type === 'normal' ? 0 : this.getPinsAt(startsAt + 2);
+    return firstRoll + secondRoll + thirdRoll;
   }
 
   private getPinsAt(rollIndex: number) {
@@ -27,7 +29,20 @@ class BowlingGame {
 
   frames(): Frame[] {
     const framesInGame = 10;
-    return Array.from({ length: framesInGame }, (_, i) => ({ startsAt: 2 * i }));
+    const pinsInFrame = 10;
+    let startsAt = 0;
+    return Array.from({ length: framesInGame }, () => {
+      const firstRoll = this.getPinsAt(startsAt);
+      const secondRoll = this.getPinsAt(startsAt + 1);
+      // prettier-ignore
+      const type =
+        firstRoll              === pinsInFrame ? 'strike' :
+        firstRoll + secondRoll === pinsInFrame ? 'spare'  : 'normal';
+      const size = type === 'strike' ? 1 : 2;
+      const frame = { startsAt, type } as const;
+      startsAt += size;
+      return frame;
+    });
   }
 }
 
@@ -56,6 +71,22 @@ describe('bowling game', () => {
     rollMany(game, 5, 5);
     rollMany(game, 15, 0);
     expect(game.calculateTotalScore()).toBe(35);
+  });
+
+  it('should be able to calculate the total score for a game with a strike and two normal rolls', () => {
+    const game = new BowlingGame();
+    game.roll(10);
+    rollMany(game, 2, 4);
+    rollMany(game, 17, 0);
+    expect(game.calculateTotalScore()).toBe(26);
+  });
+
+  it('should be able to calculate the total score for a game with two strikes in a row and two normal rolls', () => {
+    const game = new BowlingGame();
+    rollMany(game, 2, 10);
+    rollMany(game, 2, 4);
+    rollMany(game, 14, 0);
+    expect(game.calculateTotalScore()).toBe(50);
   });
 });
 
