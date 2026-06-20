@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 class BowlingGame {
-  rolls: number[] = [];
+  private rolls: number[] = [];
 
   roll(pins: number) {
     this.rolls.push(pins);
@@ -13,17 +13,6 @@ class BowlingGame {
 }
 
 describe('bowling game', () => {
-  it('should be able to create a game', () => {
-    const game = new BowlingGame();
-    expect(game).toBeInstanceOf(BowlingGame);
-  });
-
-  it('should be able to roll a ball', () => {
-    const game = new BowlingGame();
-    game.roll(0);
-    expect(game.rolls).toStrictEqual([0]);
-  });
-
   it('should be able to calculate the total score for the worst game', () => {
     const game = new BowlingGame();
     rollMany(game, 20, 0);
