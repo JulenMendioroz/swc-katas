@@ -16,12 +16,18 @@ class BowlingGame {
   }
 
   calculateFrameScore({ startsAt }: Frame) {
-    return (this.rolls.at(startsAt) ?? 0) + (this.rolls.at(startsAt + 1) ?? 0);
+    const pinsInFrame = 10;
+    const rolledPins = this.getPinsAt(startsAt) + this.getPinsAt(startsAt + 1);
+    return rolledPins === pinsInFrame ? rolledPins + this.getPinsAt(startsAt + 2) : rolledPins;
+  }
+
+  private getPinsAt(rollIndex: number) {
+    return this.rolls.at(rollIndex) ?? 0;
   }
 
   frames(): Frame[] {
-    const amountOfFrames = 10;
-    return Array.from({ length: amountOfFrames }, (_, i) => ({ startsAt: 2 * i }));
+    const framesInGame = 10;
+    return Array.from({ length: framesInGame }, (_, i) => ({ startsAt: 2 * i }));
   }
 }
 
@@ -43,6 +49,13 @@ describe('bowling game', () => {
     rollMany(game, 3, 5);
     rollMany(game, 17, 0);
     expect(game.calculateTotalScore()).toBe(20);
+  });
+
+  it('should be able to calculate the total score for a game with two consecutive spares and an extra non-zero roll', () => {
+    const game = new BowlingGame();
+    rollMany(game, 5, 5);
+    rollMany(game, 15, 0);
+    expect(game.calculateTotalScore()).toBe(35);
   });
 });
 
