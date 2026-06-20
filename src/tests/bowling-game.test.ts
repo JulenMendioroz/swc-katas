@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 type Frame = {
   startsAt: number;
-  type: 'normal' | 'spare' | 'strike';
+  type: 'normal' | 'spare' | 'strike' | 'last';
 };
 
 class BowlingGame {
@@ -31,16 +31,19 @@ class BowlingGame {
     const framesInGame = 10;
     const pinsInFrame = 10;
     let startsAt = 0;
+    let nthFrame = 1;
     return Array.from({ length: framesInGame }, () => {
       const firstRoll = this.getPinsAt(startsAt);
       const secondRoll = this.getPinsAt(startsAt + 1);
       // prettier-ignore
       const type =
-        firstRoll              === pinsInFrame ? 'strike' :
-        firstRoll + secondRoll === pinsInFrame ? 'spare'  : 'normal';
+        nthFrame               === framesInGame ? 'last'   :
+        firstRoll              === pinsInFrame  ? 'strike' :
+        firstRoll + secondRoll === pinsInFrame  ? 'spare'  : 'normal';
       const size = type === 'strike' ? 1 : 2;
       const frame = { startsAt, type } as const;
       startsAt += size;
+      nthFrame += 1;
       return frame;
     });
   }
@@ -73,6 +76,12 @@ describe('bowling game', () => {
     expect(game.calculateTotalScore()).toBe(35);
   });
 
+  it('should be able to calculate the total score for a game with all spares', () => {
+    const game = new BowlingGame();
+    rollMany(game, 21, 5);
+    expect(game.calculateTotalScore()).toBe(150);
+  });
+
   it('should be able to calculate the total score for a game with a strike and two normal rolls', () => {
     const game = new BowlingGame();
     game.roll(10);
@@ -87,6 +96,27 @@ describe('bowling game', () => {
     rollMany(game, 2, 4);
     rollMany(game, 14, 0);
     expect(game.calculateTotalScore()).toBe(50);
+  });
+
+  it('should be able to calculate the total score for a spare in the last frame', () => {
+    const game = new BowlingGame();
+    rollMany(game, 18, 0);
+    rollMany(game, 3, 5);
+    expect(game.calculateTotalScore()).toBe(15);
+  });
+
+  it('should be able to calculate the total score for a strike in the last frame', () => {
+    const game = new BowlingGame();
+    rollMany(game, 18, 0);
+    game.roll(10);
+    rollMany(game, 2, 5);
+    expect(game.calculateTotalScore()).toBe(20);
+  });
+
+  it('should be able to calculate the total score for the best game', () => {
+    const game = new BowlingGame();
+    rollMany(game, 12, 10);
+    expect(game.calculateTotalScore()).toBe(300);
   });
 });
 
