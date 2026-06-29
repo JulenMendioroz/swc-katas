@@ -41,7 +41,7 @@ class Cell {
   }
 }
 
-type Coord = [x: number, y: number];
+type Coord = readonly [x: number, y: number];
 
 class Grid {
   private used = new WeakSet<Cell>();
@@ -67,21 +67,46 @@ class Grid {
   }
 
   private isOccupied(coord: Coord) {
-    return this.grid.has(coord.toString());
+    return this.grid.has(this.serializeCoord(coord));
   }
 
   at(coord: Coord) {
-    return this.grid.get(coord.toString());
+    return this.grid.get(this.serializeCoord(coord));
   }
 
-  adjacent([x, y]: Coord) {
+  adjacentOf(coord: Coord) {
+    return this.adjacentCoordsOf(coord).map((coord) => this.entry(coord));
+  }
+
+  private adjacentCoordsOf([x, y]: Coord) {
     // prettier-ignore
-    const masks: Coord[] = [
+    const deltas = [
       [-1, -1], [0, -1], [1, -1],
       [-1,  0],          [1,  0],
       [-1,  1], [0,  1], [1,  1],
     ];
-    return masks.map(([maskX, maskY]) => this.at([x + maskX, y + maskY])).filter(Boolean) as Cell[];
+    return deltas.map(([dX, dY]) => [x + dX, y + dY] as const);
+  }
+
+  entries() {
+    return this.occupiedCoords().map((coord) => this.entry(coord)) as Array<[Coord, Cell]>;
+  }
+
+  private entry(coord: Coord) {
+    return [coord, this.at(coord)] as const;
+  }
+
+  private occupiedCoords() {
+    return Array.from(this.grid.keys()).map((key) => this.parseCoord(key));
+  }
+
+  private serializeCoord(coord: Coord) {
+    return String(coord);
+  }
+
+  private parseCoord(string: string) {
+    const [x, y] = string.split(',').map(Number);
+    return [x, y] as const;
   }
 }
 
@@ -111,17 +136,35 @@ describe('The game of life', () => {
     });
     it('can find adjacent cells', () => {
       const grid = new Grid();
-      const centerCoord = [0, 0] as Coord;
-      const coords: Coord[] = [centerCoord, [1, 0], [0, 1], [1, 1]];
-      coords.forEach((coord) => grid.place(coord, Cell.alive()));
+      // prettier-ignore
+      const adjacentEntries = ([
+        [-1, -1], [0, -1], [1, -1],
+        [-1,  0],          [1,  0],
+        [-1,  1], [0,  1], [1,  1],
+      ] as Coord[]).map((coord) => [coord, Cell.alive()] as const);
+      const center = [0, 0] as Coord;
+      const cellAtCenter = Cell.alive();
+      const centerEntry = [center, cellAtCenter] as const;
+      const outlier = [2, 2] as Coord;
+      const outlierCell = Cell.alive();
+      const outlierEntry = [outlier, outlierCell] as const;
+      [...adjacentEntries, centerEntry, outlierEntry].forEach((entry) => grid.place(...entry));
 
-      const centerCell = grid.at(centerCoord);
-      const adjacent = grid.adjacent(centerCoord);
-
-      // TODO: test with non-adjacent cells and check only adjacent are returned
-      expect(centerCell).toBeDefined();
-      expect(adjacent).not.toContain(centerCell);
-      expect(new Set(adjacent).size).toBe(3);
+      const adjacent = grid.adjacentOf(center);
+      expect(adjacent).toStrictEqual(adjacentEntries);
+      expect(adjacent).not.toContainEqual(centerEntry);
+      expect(adjacent).not.toContainEqual(outlierEntry);
+    });
+    it('can list occupied entries', () => {
+      const grid = new Grid();
+      const entries: Array<[Coord, Cell]> = [
+        [[0, 1], Cell.alive()],
+        [[1, 2], Cell.alive()],
+        [[2, 3], Cell.alive()],
+        [[3, 4], Cell.alive()],
+      ];
+      entries.forEach(([coord, cell]) => grid.place(coord, cell));
+      expect(grid.entries()).toEqual(entries);
     });
   });
   describe('cells', () => {
