@@ -58,6 +58,17 @@ class Grid {
     this.grid.set(coord.toString(), cell);
   }
 
+  placeIfEmpty(coord: Coord, cell: Cell) {
+    return this.at(coord) ?? (this.place(coord, cell), cell);
+  }
+
+  remove(coord: Coord) {
+    const coordStr = coord.toString();
+    const cell = this.grid.get(coordStr);
+    this.used.delete(cell!);
+    this.grid.delete(coordStr);
+  }
+
   private use(cell: Cell) {
     this.used.add(cell);
   }
@@ -66,7 +77,7 @@ class Grid {
     return this.used.has(cell);
   }
 
-  private isOccupied(coord: Coord) {
+  isOccupied(coord: Coord) {
     return this.grid.has(this.serializeCoord(coord));
   }
 
@@ -78,7 +89,7 @@ class Grid {
     return this.adjacentCoordsOf(coord).map((coord) => this.entry(coord));
   }
 
-  private adjacentCoordsOf([x, y]: Coord) {
+  adjacentCoordsOf([x, y]: Coord) {
     // prettier-ignore
     const deltas = [
       [-1, -1], [0, -1], [1, -1],
@@ -88,15 +99,11 @@ class Grid {
     return deltas.map(([dX, dY]) => [x + dX, y + dY] as const);
   }
 
-  entries() {
-    return this.occupiedCoords().map((coord) => this.entry(coord)) as Array<[Coord, Cell]>;
-  }
-
   private entry(coord: Coord) {
     return [coord, this.at(coord)] as const;
   }
 
-  private occupiedCoords() {
+  occupiedCoords() {
     return Array.from(this.grid.keys()).map((key) => this.parseCoord(key));
   }
 
@@ -110,7 +117,109 @@ class Grid {
   }
 }
 
+class Game {
+  private readonly grid = new Grid();
+
+  constructor(initialState: Coord[]) {
+    initialState.forEach((coord) => this.grid.place(coord, Cell.alive()));
+  }
+
+  next() {
+    this.coordsToUpdate()
+      .map((coord) => ({
+        cell: this.grid.placeIfEmpty(coord, Cell.dead()),
+        amountOfAliveNeighbors: this.amountOfAliveNeighborsAt(coord),
+      }))
+      .forEach(({ cell, amountOfAliveNeighbors }) => {
+        switch (true) {
+          case amountOfAliveNeighbors < 2: {
+            return cell.die();
+          }
+          case amountOfAliveNeighbors === 2: {
+            return;
+          }
+          case amountOfAliveNeighbors === 3: {
+            return cell.revive();
+          }
+          case amountOfAliveNeighbors > 3: {
+            return cell.die();
+          }
+        }
+      });
+    return this;
+  }
+
+  at(coord: Coord) {
+    return this.grid.at(coord);
+  }
+
+  private amountOfAliveNeighborsAt(coord: Coord) {
+    return this.grid.adjacentOf(coord).reduce((total, [, cell]) => total + Number(cell?.isAlive() ?? false), 0);
+  }
+
+  private coordsToUpdate() {
+    const visited = new Set<string>();
+    return this.grid.occupiedCoords().reduce((toUpdate, coord) => {
+      [coord, ...this.grid.adjacentCoordsOf(coord)].forEach((coord) => {
+        const coordStr = coord.toString();
+        if (!visited.has(coordStr)) {
+          visited.add(coordStr);
+          toUpdate.push(coord);
+        }
+      });
+      return toUpdate;
+    }, [] as Coord[]);
+  }
+}
+
 describe('The game of life', () => {
+  describe('game', () => {
+    it('kills any alive cell with less than 2 neighbors due to under population', () => {
+      // prettier-ignore
+      const cell = nextStateCenterCell(create3x3Game([
+        false, false, false,
+        false, true, false,
+        false, false, false,
+      ]));
+      expect(cell?.isAlive()).toBe(false);
+    });
+    it('keeps alive cells with 2 alive neighbors', () => {
+      // prettier-ignore
+      const cell = nextStateCenterCell(create3x3Game([
+        false, false, false,
+        true, true, true,
+        false, false, false,
+      ]));
+      expect(cell?.isAlive()).toBe(true);
+    });
+    it('keeps alive cells with 3 alive neighbors', () => {
+      // prettier-ignore
+      const cell = nextStateCenterCell(create3x3Game([
+        true, false, true,
+        false, true, false,
+        false, true, false,
+      ]));
+      expect(cell?.isAlive()).toBe(true);
+    });
+    it('kills alive cells with more than 3 alive neighbors due to over population', () => {
+      // prettier-ignore
+      const center = nextStateCenterCell(create3x3Game([
+        false, true, false,
+        true, true, true,
+        false, true, false,
+      ]));
+      expect(center?.isAlive()).toBe(false);
+    });
+    it('revives dead cells with exactly 3 alive neighbors', () => {
+      // prettier-ignore
+      const cell = nextStateCenterCell(create3x3Game([
+        false, true, false,
+        false, false, false,
+        true, false, true,
+      ]));
+      expect(cell?.isAlive()).toBe(true);
+    });
+  });
   describe('grid', () => {
     it('can place and retrieve cells', () => {
       const grid = new Grid();
@@ -155,17 +264,6 @@ describe('The game of life', () => {
       expect(adjacent).not.toContainEqual(centerEntry);
       expect(adjacent).not.toContainEqual(outlierEntry);
     });
-    it('can list occupied entries', () => {
-      const grid = new Grid();
-      const entries: Array<[Coord, Cell]> = [
-        [[0, 1], Cell.alive()],
-        [[1, 2], Cell.alive()],
-        [[2, 3], Cell.alive()],
-        [[3, 4], Cell.alive()],
-      ];
-      entries.forEach(([coord, cell]) => grid.place(coord, cell));
-      expect(grid.entries()).toEqual(entries);
-    });
   });
   describe('cells', () => {
     it('can be alive', () => {
@@ -188,3 +286,22 @@ describe('The game of life', () => {
     });
   });
 });
+
+function create3x3Game(config: boolean[]) {
+  const size = 3;
+  if (config.length !== size ** 2) throw new Error();
+  const initialState = config
+    .map((isAlive, index) => {
+      if (!isAlive) return;
+      const x = index % size;
+      const y = Math.floor(index / size);
+      return [x, y] as const;
+    })
+    .filter(Boolean) as Coord[];
+  return new Game(initialState);
+}
+
+function nextStateCenterCell(game: Game) {
+  const center = [1, 1] as const;
+  return game.next().at(center);
+}
