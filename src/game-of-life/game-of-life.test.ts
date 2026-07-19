@@ -47,10 +47,43 @@ class Cell {
   }
 }
 
-type Coord = readonly [x: number, y: number];
+type CoordString = `${number}|${number}`;
+
+class Coord {
+  readonly x: number;
+  readonly y: number;
+
+  private static readonly separator = '|';
+
+  private constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  static at(x: number, y: number) {
+    return new Coord(x, y);
+  }
+
+  static origin() {
+    return new Coord(0, 0);
+  }
+
+  static fromString(string: CoordString) {
+    const [x, y] = string.split(Coord.separator).map(Number);
+    return Coord.at(x, y);
+  }
+
+  add(coord: Coord) {
+    return new Coord(this.x + coord.x, this.y + coord.y);
+  }
+
+  toString(): CoordString {
+    return `${this.x}${Coord.separator}${this.y}`;
+  }
+}
 
 class Grid {
-  private grid = new Map<string, Cell>();
+  private grid = new Map<CoordString, Cell>();
 
   place(coord: Coord, cell: Cell) {
     if (this.isOccupied(coord)) {
@@ -64,29 +97,29 @@ class Grid {
   }
 
   remove(coord: Coord) {
-    this.grid.delete(this.serializeCoord(coord));
+    this.grid.delete(coord.toString());
   }
 
   isOccupied(coord: Coord) {
-    return this.grid.has(this.serializeCoord(coord));
+    return this.grid.has(coord.toString());
   }
 
   at(coord: Coord) {
-    return this.grid.get(this.serializeCoord(coord));
+    return this.grid.get(coord.toString());
   }
 
   adjacentOf(coord: Coord) {
     return this.adjacentCoordsOf(coord).map((coord) => this.entry(coord));
   }
 
-  adjacentCoordsOf([x, y]: Coord) {
+  adjacentCoordsOf(coord: Coord) {
     // prettier-ignore
     const deltas = [
-      [-1, -1], [0, -1], [1, -1],
-      [-1,  0],          [1,  0],
-      [-1,  1], [0,  1], [1,  1],
+      Coord.at(-1, -1), Coord.at(0, -1), Coord.at(1, -1),
+      Coord.at(-1,  0),                  Coord.at(1,  0),
+      Coord.at(-1,  1), Coord.at(0,  1), Coord.at(1,  1),
     ];
-    return deltas.map(([dX, dY]) => [x + dX, y + dY] as const);
+    return deltas.map((delta) => coord.add(delta));
   }
 
   private entry(coord: Coord) {
@@ -94,16 +127,7 @@ class Grid {
   }
 
   occupiedCoords() {
-    return Array.from(this.grid.keys()).map((key) => this.parseCoord(key));
-  }
-
-  private serializeCoord(coord: Coord) {
-    return String(coord);
-  }
-
-  private parseCoord(string: string) {
-    const [x, y] = string.split(',').map(Number);
-    return [x, y] as const;
+    return Array.from(this.grid.keys()).map(Coord.fromString);
   }
 }
 
@@ -213,32 +237,33 @@ describe('The game of life', () => {
   describe('grid', () => {
     it('can place and retrieve cells', () => {
       const grid = new Grid();
-      const coord = [0, 0] as Coord;
+      const coord = Coord.origin();
       const cell = Cell.alive();
       grid.place(coord, cell);
       expect(grid.at(coord)).toBe(cell);
     });
     it('cannot place a cell in an occupied coord', () => {
       const grid = new Grid();
-      grid.place([0, 0], Cell.alive());
-      expect(() => grid.place([0, 0], Cell.alive())).toThrow();
+      const coord = Coord.origin();
+      grid.place(coord, Cell.alive());
+      expect(() => grid.place(coord, Cell.alive())).toThrow();
     });
     it('can have empty cells', () => {
       const grid = new Grid();
-      expect(grid.at([0, 0])).toBeUndefined();
+      expect(grid.at(Coord.origin())).toBeUndefined();
     });
     it('can find adjacent cells', () => {
       const grid = new Grid();
       // prettier-ignore
       const adjacentEntries = ([
-        [-1, -1], [0, -1], [1, -1],
-        [-1,  0],          [1,  0],
-        [-1,  1], [0,  1], [1,  1],
+        Coord.at(-1, -1), Coord.at(0, -1), Coord.at(1, -1),
+        Coord.at(-1,  0),                  Coord.at(1,  0),
+        Coord.at(-1,  1), Coord.at(0,  1), Coord.at(1,  1),
       ] as Coord[]).map((coord) => [coord, Cell.alive()] as const);
-      const center = [0, 0] as Coord;
+      const center = Coord.origin();
       const cellAtCenter = Cell.alive();
       const centerEntry = [center, cellAtCenter] as const;
-      const outlier = [2, 2] as Coord;
+      const outlier = Coord.at(2, 2);
       const outlierCell = Cell.alive();
       const outlierEntry = [outlier, outlierCell] as const;
       [...adjacentEntries, centerEntry, outlierEntry].forEach((entry) => grid.place(...entry));
@@ -247,6 +272,17 @@ describe('The game of life', () => {
       expect(adjacent).toStrictEqual(adjacentEntries);
       expect(adjacent).not.toContainEqual(centerEntry);
       expect(adjacent).not.toContainEqual(outlierEntry);
+    });
+  });
+  describe('coord', () => {
+    it('creates the origin at (0, 0)', () => {
+      const origin = Coord.origin();
+      expect(origin).toEqual(Coord.at(0, 0));
+    });
+    it('adds two coordinates', () => {
+      const coord = Coord.at(1, 2);
+      const result = coord.add(Coord.at(1, 1));
+      expect(result).toEqual(Coord.at(2, 3));
     });
   });
   describe('cells', () => {
@@ -277,12 +313,12 @@ function create3x3Game(config: CellStatus[]) {
   const initialState = config.map((status, index) => {
     const x = index % size;
     const y = Math.floor(index / size);
-    return [[x, y], status] as [Coord, CellStatus];
+    return [Coord.at(x, y), status] as [Coord, CellStatus];
   });
   return new Game(initialState);
 }
 
 function nextStateCenterCell(game: Game) {
-  const center = [1, 1] as const;
+  const center = Coord.at(1, 1);
   return game.next().at(center);
 }
