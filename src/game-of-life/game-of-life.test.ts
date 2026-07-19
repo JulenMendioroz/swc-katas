@@ -44,17 +44,12 @@ class Cell {
 type Coord = readonly [x: number, y: number];
 
 class Grid {
-  private used = new WeakSet<Cell>();
   private grid = new Map<string, Cell>();
 
   place(coord: Coord, cell: Cell) {
     if (this.isOccupied(coord)) {
       throw new Error();
     }
-    if (this.isUsed(cell)) {
-      throw new Error();
-    }
-    this.use(cell);
     this.grid.set(coord.toString(), cell);
   }
 
@@ -63,18 +58,7 @@ class Grid {
   }
 
   remove(coord: Coord) {
-    const coordStr = coord.toString();
-    const cell = this.grid.get(coordStr);
-    this.used.delete(cell!);
-    this.grid.delete(coordStr);
-  }
-
-  private use(cell: Cell) {
-    this.used.add(cell);
-  }
-
-  private isUsed(cell: Cell) {
-    return this.used.has(cell);
+    this.grid.delete(this.serializeCoord(coord));
   }
 
   isOccupied(coord: Coord) {
@@ -227,12 +211,6 @@ describe('The game of life', () => {
       const cell = Cell.alive();
       grid.place(coord, cell);
       expect(grid.at(coord)).toBe(cell);
-    });
-    it('cannot place the same cell in different cords', () => {
-      const grid = new Grid();
-      const cell = Cell.alive();
-      grid.place([0, 0], cell);
-      expect(() => grid.place([0, 1], cell)).toThrow();
     });
     it('cannot place a cell in an occupied coord', () => {
       const grid = new Grid();
