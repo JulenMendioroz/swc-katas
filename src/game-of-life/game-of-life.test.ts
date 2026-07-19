@@ -82,18 +82,18 @@ class Coord {
   }
 }
 
-class Grid {
-  private grid = new Map<CoordString, Cell>();
+class Grid<TItem> {
+  private grid = new Map<CoordString, TItem>();
 
-  place(coord: Coord, cell: Cell) {
+  place(coord: Coord, item: TItem) {
     if (this.isOccupied(coord)) {
       throw new Error();
     }
-    this.grid.set(coord.toString(), cell);
+    this.grid.set(coord.toString(), item);
   }
 
-  placeIfEmpty(coord: Coord, cell: Cell) {
-    return this.at(coord) ?? (this.place(coord, cell), cell);
+  placeIfEmpty(coord: Coord, item: TItem) {
+    return this.at(coord) ?? (this.place(coord, item), item);
   }
 
   remove(coord: Coord) {
@@ -132,7 +132,7 @@ class Grid {
 }
 
 class Game {
-  private readonly grid = new Grid();
+  private readonly grid = new Grid<Cell>();
 
   constructor(initialState: ReadonlyArray<[Coord, CellStatus]>) {
     initialState.forEach(([coord, status]) => this.grid.place(coord, Cell.create(status)));
@@ -236,24 +236,24 @@ describe('The game of life', () => {
   });
   describe('grid', () => {
     it('can place and retrieve cells', () => {
-      const grid = new Grid();
+      const grid = new Grid<Cell>();
       const coord = Coord.origin();
       const cell = Cell.alive();
       grid.place(coord, cell);
       expect(grid.at(coord)).toBe(cell);
     });
     it('cannot place a cell in an occupied coord', () => {
-      const grid = new Grid();
+      const grid = new Grid<Cell>();
       const coord = Coord.origin();
       grid.place(coord, Cell.alive());
       expect(() => grid.place(coord, Cell.alive())).toThrow();
     });
     it('can have empty cells', () => {
-      const grid = new Grid();
+      const grid = new Grid<Cell>();
       expect(grid.at(Coord.origin())).toBeUndefined();
     });
     it('can find adjacent cells', () => {
-      const grid = new Grid();
+      const grid = new Grid<Cell>();
       // prettier-ignore
       const adjacentEntries = ([
         Coord.at(-1, -1), Coord.at(0, -1), Coord.at(1, -1),
