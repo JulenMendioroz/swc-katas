@@ -108,8 +108,8 @@ class Grid {
 class Game {
   private readonly grid = new Grid();
 
-  constructor(initialState: Coord[]) {
-    initialState.forEach((coord) => this.grid.place(coord, Cell.alive()));
+  constructor(initialState: ReadonlyArray<[Coord, CellStatus]>) {
+    initialState.forEach(([coord, status]) => this.grid.place(coord, Cell.create(status)));
   }
 
   next() {
@@ -165,45 +165,45 @@ describe('The game of life', () => {
     it('kills any alive cell with less than 2 neighbors due to under population', () => {
       // prettier-ignore
       const cell = nextStateCenterCell(create3x3Game([
-        false, false, false,
-        false, true, false,
-        false, false, false,
+        CellStatus.dead, CellStatus.dead, CellStatus.dead,
+        CellStatus.dead, CellStatus.alive, CellStatus.dead,
+        CellStatus.dead, CellStatus.dead, CellStatus.dead,
       ]));
       expect(cell?.isAlive()).toBe(false);
     });
     it('keeps alive cells with 2 alive neighbors', () => {
       // prettier-ignore
       const cell = nextStateCenterCell(create3x3Game([
-        false, false, false,
-        true, true, true,
-        false, false, false,
+        CellStatus.dead, CellStatus.dead, CellStatus.dead,
+        CellStatus.alive, CellStatus.alive, CellStatus.alive,
+        CellStatus.dead, CellStatus.dead, CellStatus.dead,
       ]));
       expect(cell?.isAlive()).toBe(true);
     });
     it('keeps alive cells with 3 alive neighbors', () => {
       // prettier-ignore
       const cell = nextStateCenterCell(create3x3Game([
-        true, false, true,
-        false, true, false,
-        false, true, false,
+        CellStatus.alive, CellStatus.dead, CellStatus.alive,
+        CellStatus.dead, CellStatus.alive, CellStatus.dead,
+        CellStatus.dead, CellStatus.alive, CellStatus.dead,
       ]));
       expect(cell?.isAlive()).toBe(true);
     });
     it('kills alive cells with more than 3 alive neighbors due to over population', () => {
       // prettier-ignore
       const center = nextStateCenterCell(create3x3Game([
-        false, true, false,
-        true, true, true,
-        false, true, false,
+        CellStatus.dead, CellStatus.alive, CellStatus.dead,
+        CellStatus.alive, CellStatus.alive, CellStatus.alive,
+        CellStatus.dead, CellStatus.alive, CellStatus.dead,
       ]));
       expect(center?.isAlive()).toBe(false);
     });
     it('revives dead cells with exactly 3 alive neighbors', () => {
       // prettier-ignore
       const cell = nextStateCenterCell(create3x3Game([
-        false, true, false,
-        false, false, false,
-        true, false, true,
+        CellStatus.dead, CellStatus.alive, CellStatus.dead,
+        CellStatus.dead, CellStatus.dead, CellStatus.dead,
+        CellStatus.alive, CellStatus.dead, CellStatus.alive,
       ]));
       expect(cell?.isAlive()).toBe(true);
     });
@@ -269,17 +269,14 @@ describe('The game of life', () => {
   });
 });
 
-function create3x3Game(config: boolean[]) {
+function create3x3Game(config: CellStatus[]) {
   const size = 3;
   if (config.length !== size ** 2) throw new Error();
-  const initialState = config
-    .map((isAlive, index) => {
-      if (!isAlive) return;
-      const x = index % size;
-      const y = Math.floor(index / size);
-      return [x, y] as const;
-    })
-    .filter(Boolean) as Coord[];
+  const initialState = config.map((status, index) => {
+    const x = index % size;
+    const y = Math.floor(index / size);
+    return [[x, y], status] as [Coord, CellStatus];
+  });
   return new Game(initialState);
 }
 
