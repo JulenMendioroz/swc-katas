@@ -20,12 +20,16 @@ class Cell {
     this.status = status;
   }
 
+  public static create(status: CellStatus) {
+    return new Cell(status);
+  }
+
   public static alive() {
-    return new Cell(CellStatus.alive);
+    return Cell.create(CellStatus.alive);
   }
 
   public static dead() {
-    return new Cell(CellStatus.dead);
+    return Cell.create(CellStatus.dead);
   }
 
   isAlive() {
