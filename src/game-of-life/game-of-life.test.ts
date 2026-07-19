@@ -38,10 +38,12 @@ class Cell {
 
   die() {
     this.status = CellStatus.dead;
+    return this;
   }
 
   revive() {
     this.status = CellStatus.alive;
+    return this;
   }
 }
 
