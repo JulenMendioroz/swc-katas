@@ -109,7 +109,7 @@ class Grid<TItem> {
   }
 
   adjacentOf(coord: Coord) {
-    return this.adjacentCoordsOf(coord).map((coord) => this.entry(coord));
+    return this.adjacentCoordsOf(coord).map((coord) => [coord, this.at(coord)] as const);
   }
 
   adjacentCoordsOf(coord: Coord) {
@@ -120,10 +120,6 @@ class Grid<TItem> {
       Coord.at(-1,  1), Coord.at(0,  1), Coord.at(1,  1),
     ];
     return deltas.map((delta) => coord.add(delta));
-  }
-
-  private entry(coord: Coord) {
-    return [coord, this.at(coord)] as const;
   }
 
   occupiedCoords() {
